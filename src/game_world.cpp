@@ -53,16 +53,44 @@ inline auto createSurface() {
     return wrap(surface);
 }
 
-GameWorld::GameWorld() : surfaceWrapper{createSurface()} {}
+inline std::array<SDL_Rect, 13> createFood() {
+    int centerX = WorldWidth * 3 / 4;
+    int centerY = WorldHeight * 3 / 4;
+
+    // TODO: Make this less shitty
+    std::array<SDL_Rect, 13> food{};
+    auto i = 0u;
+    food[i] = {centerX, centerY - 2, 1, 1};
+    food[++i] = {centerX - 1, centerY - 1, 1, 1};
+    food[++i] = {centerX, centerY - 1, 1, 1};
+    food[++i] = {centerX + 1, centerY - 1, 1, 1};
+    food[++i] = {centerX - 2, centerY, 1, 1};
+    food[++i] = {centerX - 1, centerY, 1, 1};
+    food[++i] = {centerX, centerY, 1, 1};
+    food[++i] = {centerX + 1, centerY, 1, 1};
+    food[++i] = {centerX + 2, centerY, 1, 1};
+    food[++i] = {centerX - 1, centerY + 1, 1, 1};
+    food[++i] = {centerX, centerY+1, 1, 1};
+    food[++i] = {centerX + 1, centerY + 1, 1, 1};
+    food[++i] = {centerX, centerY + 2, 1, 1};
+
+    return food;
+}
+
+GameWorld::GameWorld() : surfaceWrapper{createSurface()}, food{createFood()} {}
 
 SDL_Texture_Wrapper GameWorld::draw(SDL_Renderer *renderer) {
     static const auto black = SDL_MapRGB(surfaceWrapper->format, 0x00, 0x00, 0x00);
     static const auto red = SDL_MapRGB(surfaceWrapper->format, 0xFF, 0x00, 0x00);
+    static const auto green = SDL_MapRGB(surfaceWrapper->format, 0x00, 0xFF, 0x00);
 
     const auto ants = colony.ants;
     const auto surface = surfaceWrapper.get();
 
     SDL_FillRect(surface, nullptr, black);
+    for (const auto &f: food) {
+        SDL_FillRect(surface, &f, green);
+    }
     for (const auto &ant: ants) {
         SDL_FillRect(surface, &ant.rect, red);
     }

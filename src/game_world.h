@@ -60,4 +60,5 @@ struct GameWorld {
 private:
     SDL_Surface_Wrapper surfaceWrapper;
     Colony colony{};
+    const std::array<SDL_Rect, 13> food;
 };
