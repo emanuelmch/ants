@@ -31,22 +31,20 @@ void Colony::run() {
     std::for_each(std::execution::par_unseq, ants.begin(), ants.end(), [](Ant &ant) {
         switch (std::rand() % 4) {
             case 0:
-                ant.rect.x += 1;
+                ant.rect.x = std::clamp(ant.rect.x + 1, 0, WorldWidth);
                 break;
             case 1:
-                ant.rect.x -= 1;
+                ant.rect.x = std::clamp(ant.rect.x - 1, 0, WorldWidth);
                 break;
             case 2:
-                ant.rect.y += 1;
+                ant.rect.y = std::clamp(ant.rect.y + 1, 0, WorldHeight);
                 break;
             case 3:
-                ant.rect.y -= 1;
+                ant.rect.y = std::clamp(ant.rect.y - 1, 0, WorldHeight);
                 break;
             default:
                 assert(!"FUCK");
         }
-        ant.rect.x = std::clamp(ant.rect.x, 0, WorldWidth);
-        ant.rect.y = std::clamp(ant.rect.y, 0, WorldHeight);
     });
 }
 
