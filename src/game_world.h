@@ -27,38 +27,41 @@
 #include <SDL2/SDL.h>
 
 #include <array>
+#include <limits>
+#include <unordered_set>
 
 const auto AntCount = 200;
-const auto WorldWidth = 640;
-const auto WorldHeight = 480;
+const auto WorldWidth = 100;
+const auto WorldHeight = 100;
+
+using Pheromone = uint32_t;
+const auto PheromoneMax = std::numeric_limits<Pheromone>::max() - 1;
+using Pheromones = std::array<std::array<Pheromone, WorldHeight>, WorldWidth>;
 
 struct Ant {
     SDL_Rect rect;
-};
+    bool isReturning;
 
-struct Colony {
-    Colony() : ants{}, position{WorldWidth / 2, WorldHeight / 2} {
-        const auto x = WorldWidth / 2;
-        const auto y = WorldHeight / 2;
-        ants.fill(Ant{x, y, 1, 1});
-    }
+    Pheromone pheromoneStrength = PheromoneMax;
 
-    void run();
-
-    std::array<Ant, AntCount> ants;
-    const SDL_Point position;
+    Ant() : Ant(0, 0) {}
+    Ant(int x, int y) : rect{x, y, 1, 1}, isReturning{false} {}
 };
 
 struct GameWorld {
 
     GameWorld();
 
-    inline void run() { colony.run(); }
+    void run();
 
     SDL_Texture_Wrapper draw(SDL_Renderer *renderer);
 
 private:
     SDL_Surface_Wrapper surfaceWrapper;
-    Colony colony{};
-    const std::array<SDL_Rect, 13> food;
+
+    const SDL_Point colony;
+    const std::unordered_set<SDL_Rect> food;
+
+    std::array<Ant, AntCount> ants;
+    Pheromones colonyPheromones;
 };

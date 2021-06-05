@@ -22,72 +22,150 @@
 
 #include "game_world.h"
 
+#include "common.h"
+
 #include <algorithm>
 #include <cassert>
-#include <execution>
 #include <iostream>
-
-void Colony::run() {
-    std::for_each(std::execution::par_unseq, ants.begin(), ants.end(), [](Ant &ant) {
-        switch (std::rand() % 4) {
-            case 0:
-                ant.rect.x = std::clamp(ant.rect.x + 1, 0, WorldWidth);
-                break;
-            case 1:
-                ant.rect.x = std::clamp(ant.rect.x - 1, 0, WorldWidth);
-                break;
-            case 2:
-                ant.rect.y = std::clamp(ant.rect.y + 1, 0, WorldHeight);
-                break;
-            case 3:
-                ant.rect.y = std::clamp(ant.rect.y - 1, 0, WorldHeight);
-                break;
-            default:
-                assert(!"FUCK");
-        }
-    });
-}
+#include <optional>
 
 inline auto createSurface() {
     auto surface = SDL_CreateRGBSurfaceWithFormat(0, WorldWidth, WorldHeight, 32, SDL_PIXELFORMAT_RGBA32);
     return wrap(surface);
 }
 
-inline std::array<SDL_Rect, 13> createFood() {
-    int centerX = WorldWidth * 3 / 4;
-    int centerY = WorldHeight * 3 / 4;
+inline std::unordered_set<SDL_Rect> makeDiamond(int x, int y) {
+    assert(x > 2 && x < (WorldWidth - 3));
+    assert(y > 2 && y < (WorldHeight - 3));
 
     // TODO: Make this less shitty
-    std::array<SDL_Rect, 13> food{};
-    auto i = 0u;
-    food[i] = {centerX, centerY - 2, 1, 1};
-    food[++i] = {centerX - 1, centerY - 1, 1, 1};
-    food[++i] = {centerX, centerY - 1, 1, 1};
-    food[++i] = {centerX + 1, centerY - 1, 1, 1};
-    food[++i] = {centerX - 2, centerY, 1, 1};
-    food[++i] = {centerX - 1, centerY, 1, 1};
-    food[++i] = {centerX, centerY, 1, 1};
-    food[++i] = {centerX + 1, centerY, 1, 1};
-    food[++i] = {centerX + 2, centerY, 1, 1};
-    food[++i] = {centerX - 1, centerY + 1, 1, 1};
-    food[++i] = {centerX, centerY+1, 1, 1};
-    food[++i] = {centerX + 1, centerY + 1, 1, 1};
-    food[++i] = {centerX, centerY + 2, 1, 1};
+    std::unordered_set<SDL_Rect> food{};
+    food.emplace(x, y - 2, 1, 1);
+    food.emplace(x - 1, y - 1, 1, 1);
+    food.emplace(x, y - 1, 1, 1);
+    food.emplace(x + 1, y - 1, 1, 1);
+    food.emplace(x - 2, y, 1, 1);
+    food.emplace(x - 1, y, 1, 1);
+    food.emplace(x, y, 1, 1);
+    food.emplace(x + 1, y, 1, 1);
+    food.emplace(x + 2, y, 1, 1);
+    food.emplace(x - 1, y + 1, 1, 1);
+    food.emplace(x, y + 1, 1, 1);
+    food.emplace(x + 1, y + 1, 1, 1);
+    food.emplace(x, y + 2, 1, 1);
 
     return food;
 }
 
-GameWorld::GameWorld() : surfaceWrapper{createSurface()}, food{createFood()} {}
+GameWorld::GameWorld() : surfaceWrapper{createSurface()},//
+                         colony{WorldWidth / 2, WorldHeight / 2},//
+                         food{makeDiamond(WorldWidth * 3 / 4, WorldHeight * 3 / 4)},//
+                         ants{}, //
+                         colonyPheromones{}//
+{
+    const auto x = WorldWidth / 2;
+    const auto y = WorldHeight / 2;
+    ants.fill(Ant{x, y});
+}
+
+inline std::optional<SDL_Point> findStrongestPheromone(const Ant &ant, const auto &pheromones) {
+    auto x = static_cast<size_t>(ant.rect.x);
+    auto y = static_cast<size_t>(ant.rect.y);
+    auto west = (x > 0) ? pheromones[x - 1][y] : 0;
+    auto east = (x < (WorldWidth - 1)) ? pheromones[x + 1][y] : 0;
+    auto north = (y > 0) ? pheromones[x][y - 1] : 0;
+    auto south = (y < (WorldHeight - 1)) ? pheromones[x][y + 1] : 0;
+
+    auto strongest = common::max(west, east, north, south);
+    if (strongest == 0) {
+        return std::nullopt;
+    }
+
+    if (strongest == west) {
+        return std::optional{SDL_Point{ant.rect.x - 1, ant.rect.y}};
+    }
+    if (strongest == east) {
+        return std::optional{SDL_Point{ant.rect.x + 1, ant.rect.y}};
+    }
+    if (strongest == north) {
+        return std::optional{SDL_Point{ant.rect.x, ant.rect.y - 1}};
+    }
+    assert(strongest == south);
+    return std::optional{SDL_Point{ant.rect.x, ant.rect.y + 1}};
+}
+
+inline void moveAnt(Ant *ant, const SDL_Point &newPosition) {
+    assert(newPosition.x >= 0 && newPosition.x < WorldWidth);
+    assert(newPosition.y >= 0 && newPosition.y < WorldHeight);
+    ant->rect.x = newPosition.x;
+    ant->rect.y = newPosition.y;
+}
+
+inline void randomMove(Ant *ant) {
+    switch (std::rand() % 4) {
+        case 0:
+            ant->rect.x = std::min(ant->rect.x + 1, WorldWidth - 1);
+            break;
+        case 1:
+            ant->rect.x = std::max(ant->rect.x - 1, 0);
+            break;
+        case 2:
+            ant->rect.y = std::min(ant->rect.y + 1, WorldHeight - 1);
+            break;
+        case 3:
+            ant->rect.y = std::max(ant->rect.y - 1, 0);
+            break;
+        default:
+            assert(!"Our random is broken");
+    }
+}
+
+inline void leavePheromone(const Ant &ant, auto *pheromones) {
+    auto x = static_cast<size_t>(ant.rect.x);
+    auto y = static_cast<size_t>(ant.rect.y);
+    pheromones->at(x).at(y) = std::max(pheromones->at(x).at(y), ant.pheromoneStrength);
+}
+
+inline void changeAntMode(Ant *ant, const auto &colony, const auto &food) {
+    if (ant->isReturning) {
+        if (ant->rect.x == colony.x && ant->rect.y == colony.y) {
+            ant->isReturning = false;
+        }
+    } else {
+        if (food.contains(ant->rect)) {
+            ant->isReturning = true;
+        }
+    }
+}
+
+void GameWorld::run() {
+    for (auto &ant : ants) {
+        if (ant.isReturning) {
+            auto strongestPheromone = findStrongestPheromone(ant, colonyPheromones);
+            assert(strongestPheromone.has_value());
+            moveAnt(&ant, strongestPheromone.value());
+        } else {
+            randomMove(&ant);
+            leavePheromone(ant, &colonyPheromones);
+        }
+
+        ant.pheromoneStrength--;
+        assert(ant.pheromoneStrength > 0);
+        changeAntMode(&ant, colony, food);
+    }
+}
 
 SDL_Texture_Wrapper GameWorld::draw(SDL_Renderer *renderer) {
     static const auto black = SDL_MapRGB(surfaceWrapper->format, 0x00, 0x00, 0x00);
     static const auto red = SDL_MapRGB(surfaceWrapper->format, 0xFF, 0x00, 0x00);
     static const auto green = SDL_MapRGB(surfaceWrapper->format, 0x00, 0xFF, 0x00);
+    static const auto blue = SDL_MapRGB(surfaceWrapper->format, 0x00, 0x00, 0xFF);
 
-    const auto ants = colony.ants;
+    const static SDL_Rect colonyRect{colony.x, colony.y, 1, 1};
     const auto surface = surfaceWrapper.get();
 
     SDL_FillRect(surface, nullptr, black);
+    SDL_FillRect(surface, &colonyRect, blue);
     for (const auto &f: food) {
         SDL_FillRect(surface, &f, green);
     }

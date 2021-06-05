@@ -22,36 +22,13 @@
 
 #pragma once
 
-#include <SDL2/SDL.h>
+#include <algorithm>
 
-#include <cassert>
-#include <memory>
-
-using SDL_Surface_Wrapper = std::unique_ptr<SDL_Surface, void (*)(SDL_Surface *)>;
-using SDL_Texture_Wrapper = std::unique_ptr<SDL_Texture, void (*)(SDL_Texture *)>;
-
-inline SDL_Surface_Wrapper wrap(SDL_Surface *surface) {
-    return SDL_Surface_Wrapper{surface, SDL_FreeSurface};
-}
-
-inline SDL_Texture_Wrapper wrap(SDL_Texture *texture) {
-    return SDL_Texture_Wrapper{texture, SDL_DestroyTexture};
-}
-
-namespace std {
-    template<>
-    struct hash<SDL_Rect> {
-        inline std::size_t operator()(const SDL_Rect &rect) const {
-            assert(rect.w == 1 && rect.h == 1);
-            auto x = static_cast<size_t>(rect.x);
-            auto y = static_cast<size_t>(rect.y);
-            return x * 31 + y;
-        }
-    };
-}
-
-inline bool operator==(const SDL_Rect &lhs, const SDL_Rect &rhs) {
-    assert(lhs.w == 1 && lhs.h == 1);
-    assert(rhs.w == 1 && rhs.h == 1);
-    return lhs.x == rhs.x && lhs.y == rhs.y;
+namespace common {
+    template<typename T>
+    T max(const T &a, const T &b, const T &c, const T &d) {
+        auto max = std::max(a, b);
+        max = std::max(max, c);
+        return std::max(max, d);
+    }
 }

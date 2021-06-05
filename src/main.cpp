@@ -29,7 +29,7 @@
 
 constexpr int screenWidth = 640 * 2;
 constexpr int screenHeight = 480 * 2;
-//constexpr int frameDelay = 1000 / 60;
+//constexpr int frameDelay = 1000 / 10;
 
 int main() {
     SDLGame game{screenWidth, screenHeight};
@@ -37,7 +37,7 @@ int main() {
     auto counter = 0;
     auto start = std::chrono::steady_clock::now();
     while (game.isRunning) {
-//        auto start = std::chrono::steady_clock::now();
+//        auto frameStart = std::chrono::steady_clock::now();
 
         game.handleEvents();
         game.run();
@@ -52,7 +52,9 @@ int main() {
             counter = 0;
             start = end;
         }
-//        if (duration < frameDelay) {
+
+//        auto frameDuration = std::chrono::duration_cast<std::chrono::milliseconds>(end - frameStart).count();
+//        if (frameDuration < frameDelay) {
 //            SDL_Delay(frameDelay - duration);
 //        }
     }
