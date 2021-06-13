@@ -64,4 +64,5 @@ private:
 
     std::array<Ant, AntCount> ants;
     Pheromones colonyPheromones;
+    Pheromones foodPheromones;
 };

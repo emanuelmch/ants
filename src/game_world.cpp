@@ -61,7 +61,8 @@ GameWorld::GameWorld() : surfaceWrapper{createSurface()},//
                          colony{WorldWidth / 2, WorldHeight / 2},//
                          food{makeDiamond(WorldWidth * 3 / 4, WorldHeight * 3 / 4)},//
                          ants{}, //
-                         colonyPheromones{}//
+                         colonyPheromones{},//
+                         foodPheromones{}//
 {
     const auto x = WorldWidth / 2;
     const auto y = WorldHeight / 2;
@@ -130,10 +131,12 @@ inline void changeAntMode(Ant *ant, const auto &colony, const auto &food) {
     if (ant->isReturning) {
         if (ant->rect.x == colony.x && ant->rect.y == colony.y) {
             ant->isReturning = false;
+            ant->pheromoneStrength = PheromoneMax;
         }
     } else {
         if (food.contains(ant->rect)) {
             ant->isReturning = true;
+            ant->pheromoneStrength = PheromoneMax;
         }
     }
 }
@@ -141,12 +144,18 @@ inline void changeAntMode(Ant *ant, const auto &colony, const auto &food) {
 void GameWorld::run() {
     for (auto &ant : ants) {
         if (ant.isReturning) {
+            leavePheromone(ant, &foodPheromones);
             auto strongestPheromone = findStrongestPheromone(ant, colonyPheromones);
             assert(strongestPheromone.has_value());
             moveAnt(&ant, strongestPheromone.value());
         } else {
-            randomMove(&ant);
             leavePheromone(ant, &colonyPheromones);
+            auto strongestPheromone = findStrongestPheromone(ant, foodPheromones);
+            if (strongestPheromone.has_value()) {
+                moveAnt(&ant, strongestPheromone.value());
+            } else {
+                randomMove(&ant);
+            }
         }
 
         ant.pheromoneStrength--;
