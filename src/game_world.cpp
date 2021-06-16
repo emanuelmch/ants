@@ -57,9 +57,38 @@ inline std::unordered_set<SDL_Rect> makeDiamond(int x, int y) {
     return food;
 }
 
+inline std::unordered_set<SDL_Rect> makeObstacles() {
+    // TODO: Make this less shitty
+    std::unordered_set<SDL_Rect> obstacles{};
+    obstacles.emplace(79, 70, 1, 1);
+    obstacles.emplace(78, 70, 1, 1);
+    obstacles.emplace(77, 70, 1, 1);
+    obstacles.emplace(76, 70, 1, 1);
+    obstacles.emplace(75, 70, 1, 1);
+    obstacles.emplace(74, 70, 1, 1);
+    obstacles.emplace(73, 70, 1, 1);
+    obstacles.emplace(72, 70, 1, 1);
+    obstacles.emplace(71, 70, 1, 1);
+    obstacles.emplace(70, 70, 1, 1);
+    obstacles.emplace(70, 71, 1, 1);
+    obstacles.emplace(70, 72, 1, 1);
+    obstacles.emplace(70, 73, 1, 1);
+    obstacles.emplace(70, 74, 1, 1);
+    obstacles.emplace(70, 75, 1, 1);
+    obstacles.emplace(70, 76, 1, 1);
+    obstacles.emplace(70, 77, 1, 1);
+    obstacles.emplace(70, 78, 1, 1);
+    obstacles.emplace(70, 79, 1, 1);
+    obstacles.emplace(70, 80, 1, 1);
+
+
+    return obstacles;
+}
+
 GameWorld::GameWorld() : surfaceWrapper{createSurface()},//
                          colony{WorldWidth / 2, WorldHeight / 2},//
                          food{makeDiamond(WorldWidth * 3 / 4, WorldHeight * 3 / 4)},//
+                         obstacles{makeObstacles()},
                          ants{}, //
                          colonyPheromones{},//
                          foodPheromones{}//
@@ -102,22 +131,29 @@ inline void moveAnt(Ant *ant, const SDL_Point &newPosition) {
     ant->rect.y = newPosition.y;
 }
 
-inline void randomMove(Ant *ant) {
+inline void randomMove(Ant *ant, const auto &obstacles) {
+    SDL_Rect move{ant->rect};
     switch (std::rand() % 4) {
         case 0:
-            ant->rect.x = std::min(ant->rect.x + 1, WorldWidth - 1);
+            move.x = std::min(move.x + 1, WorldWidth - 1);
             break;
         case 1:
-            ant->rect.x = std::max(ant->rect.x - 1, 0);
+            move.x = std::max(move.x - 1, 0);
             break;
         case 2:
-            ant->rect.y = std::min(ant->rect.y + 1, WorldHeight - 1);
+            move.y = std::min(move.y + 1, WorldHeight - 1);
             break;
         case 3:
-            ant->rect.y = std::max(ant->rect.y - 1, 0);
+            move.y = std::max(move.y - 1, 0);
             break;
         default:
             assert(!"Our random is broken");
+    }
+    if (obstacles.contains(move)) {
+        randomMove(ant, obstacles);
+    } else {
+        ant->rect.x = move.x;
+        ant->rect.y = move.y;
     }
 }
 
@@ -143,18 +179,23 @@ inline void changeAntMode(Ant *ant, const auto &colony, const auto &food) {
 
 void GameWorld::run() {
     for (auto &ant : ants) {
-        if (ant.isReturning) {
+        if (rand() % 100 < RebelChance) {
+            randomMove(&ant, obstacles);
+        } else if (ant.isReturning) {
             leavePheromone(ant, &foodPheromones);
             auto strongestPheromone = findStrongestPheromone(ant, colonyPheromones);
-            assert(strongestPheromone.has_value());
-            moveAnt(&ant, strongestPheromone.value());
+            if (strongestPheromone.has_value()) {
+                moveAnt(&ant, strongestPheromone.value());
+            } else {
+                randomMove(&ant, obstacles);
+            }
         } else {
             leavePheromone(ant, &colonyPheromones);
             auto strongestPheromone = findStrongestPheromone(ant, foodPheromones);
             if (strongestPheromone.has_value()) {
                 moveAnt(&ant, strongestPheromone.value());
             } else {
-                randomMove(&ant);
+                randomMove(&ant, obstacles);
             }
         }
 
@@ -169,6 +210,7 @@ SDL_Texture_Wrapper GameWorld::draw(SDL_Renderer *renderer) {
     static const auto red = SDL_MapRGB(surfaceWrapper->format, 0xFF, 0x00, 0x00);
     static const auto green = SDL_MapRGB(surfaceWrapper->format, 0x00, 0xFF, 0x00);
     static const auto blue = SDL_MapRGB(surfaceWrapper->format, 0x00, 0x00, 0xFF);
+    static const auto gray = SDL_MapRGB(surfaceWrapper->format, 0x64, 0x64, 0x64);
 
     const static SDL_Rect colonyRect{colony.x, colony.y, 1, 1};
     const auto surface = surfaceWrapper.get();
@@ -177,6 +219,9 @@ SDL_Texture_Wrapper GameWorld::draw(SDL_Renderer *renderer) {
     SDL_FillRect(surface, &colonyRect, blue);
     for (const auto &f: food) {
         SDL_FillRect(surface, &f, green);
+    }
+    for (const auto &o: obstacles) {
+        SDL_FillRect(surface, &o, gray);
     }
     for (const auto &ant: ants) {
         SDL_FillRect(surface, &ant.rect, red);

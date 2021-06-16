@@ -33,6 +33,7 @@
 const auto AntCount = 200;
 const auto WorldWidth = 100;
 const auto WorldHeight = 100;
+const auto RebelChance = 2;
 
 using Pheromone = uint32_t;
 const auto PheromoneMax = std::numeric_limits<Pheromone>::max() - 1;
@@ -61,6 +62,7 @@ private:
 
     const SDL_Point colony;
     const std::unordered_set<SDL_Rect> food;
+    const std::unordered_set<SDL_Rect> obstacles;
 
     std::array<Ant, AntCount> ants;
     Pheromones colonyPheromones;
