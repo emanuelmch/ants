@@ -177,7 +177,20 @@ inline void changeAntMode(Ant *ant, const auto &colony, const auto &food) {
     }
 }
 
+inline void decay(auto &pheromones) {
+    for (auto &array : pheromones) {
+        for (auto &pheromone: array) {
+            if (pheromone > 0) {
+                --pheromone;
+            }
+        }
+    }
+}
+
 void GameWorld::run() {
+//    decay(colonyPheromones);
+//    decay(foodPheromones);
+
     for (auto &ant : ants) {
         if (rand() % 100 < RebelChance) {
             randomMove(&ant, obstacles);
